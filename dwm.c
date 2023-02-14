@@ -283,7 +283,7 @@ static Colormap cmap;
 #include "config.h"
 
 /* compile-time check if all tags fit into an unsigned int bit array. */
-struct NumTags { char limitexceeded[LENGTH(tags) > 31 ? -1 : 1]; };
+/* struct NumTags { char limitexceeded[LENGTH(tags) > 31 ? -1 : 1]; }; */
 
 /* function implementations */
 void
@@ -328,7 +328,6 @@ applyrules(Client *c)
 int
 applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact)
 {
-	int baseismin;
 	Monitor *m = c->mon;
 
 	/* set minimum possible */
@@ -361,7 +360,7 @@ applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact)
 		if (!c->hintsvalid)
 			updatesizehints(c);
 		/* see last two sentences in ICCCM 4.1.2.3 */
-		baseismin = c->basew == c->minw && c->baseh == c->minh;
+		int baseismin = c->basew == c->minw && c->baseh == c->minh;
 		if (!baseismin) { /* temporarily remove base dimensions */
 			*w -= c->basew;
 			*h -= c->baseh;
@@ -432,7 +431,7 @@ attachstack(Client *c)
 void
 buttonpress(XEvent *e)
 {
-	unsigned int i, x, click;
+	unsigned int i, click;
 	Arg arg = {0};
 	Client *c;
 	Monitor *m;
@@ -446,7 +445,8 @@ buttonpress(XEvent *e)
 		focus(NULL);
 	}
 	if (ev->window == selmon->barwin) {
-		i = x = 0;
+		int x = 0;
+		i = 0;
 		do
 			x += TEXTW(tags[i]);
 		while (ev->x >= x && ++i < LENGTH(tags));
@@ -570,11 +570,10 @@ configurenotify(XEvent *e)
 	Monitor *m;
 	Client *c;
 	XConfigureEvent *ev = &e->xconfigure;
-	int dirty;
 
 	/* TODO: updategeom handling sucks, needs to be simplified */
 	if (ev->window == root) {
-		dirty = (sw != ev->width || sh != ev->height);
+		int dirty = (sw != ev->width || sh != ev->height);
 		sw = ev->width;
 		sh = ev->height;
 		if (updategeom() || dirty) {
@@ -1281,13 +1280,15 @@ Monitor *
 recttomon(int x, int y, int w, int h)
 {
 	Monitor *m, *r = selmon;
-	int a, area = 0;
+	int area = 0;
 
-	for (m = mons; m; m = m->next)
-		if ((a = INTERSECT(x, y, w, h, m)) > area) {
+	for (m = mons; m; m = m->next) {
+		int a = INTERSECT(x, y, w, h, m);
+		if (a > area) {
 			area = a;
 			r = m;
 		}
+        }
 	return r;
 }
 
@@ -1409,11 +1410,12 @@ run(void)
 void
 scan(void)
 {
-	unsigned int i, num;
+	unsigned int num;
 	Window d1, d2, *wins = NULL;
 	XWindowAttributes wa;
 
 	if (XQueryTree(dpy, root, &d1, &d2, &wins, &num)) {
+		int i;
 		for (i = 0; i < num; i++) {
 			if (!XGetWindowAttributes(dpy, wins[i], &wa)
 			|| wa.override_redirect || XGetTransientForHint(dpy, wins[i], &d1))
@@ -2151,7 +2153,6 @@ void
 xinitvisual()
 {
 	XVisualInfo *infos;
-	XRenderPictFormat *fmt;
 	int nitems;
 	int i;
 
@@ -2165,7 +2166,7 @@ xinitvisual()
 	infos = XGetVisualInfo(dpy, masks, &tpl, &nitems);
 	visual = NULL;
 	for(i = 0; i < nitems; i ++) {
-		fmt = XRenderFindVisualFormat(dpy, infos[i].visual);
+		XRenderPictFormat *fmt = XRenderFindVisualFormat(dpy, infos[i].visual);
 		if (fmt->type == PictTypeDirect && fmt->direct.alphaMask) {
 			visual = infos[i].visual;
 			depth = infos[i].depth;
