@@ -65,13 +65,17 @@ static const Layout layouts[] = {
 
 /* commands */
 static const char *cmdprintscreen[]  = { "scrot", "-d3", "/home/stefan/screenshots/%Y-%m-%d-%s_$wx$h.jpg", NULL };
+static const char *english[] = { "setxkbmap", "ro", NULL };
+static const char *romanian[] = { "setxkbmap", "ro", "std", NULL };
 static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
 static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", col_gray1, "-nf", col_gray3, "-sb", col_cyan, "-sf", col_gray4, NULL };
 static const char *termcmd[]  = { "st", NULL };
 
 static const Key keys[] = {
 	/* modifier                     key        function        argument */
-	{ 0,    						PrintScreenDWM,      spawn,          {.v = cmdprintscreen } },
+	{ 0,    			PrintScreenDWM,      spawn,          {.v = cmdprintscreen } },
+	{ MODKEY,                       XK_e,      spawn,          {.v = english} },
+	{ MODKEY,                       XK_r,      spawn,          {.v = romanian } },
 	{ MODKEY,                       XK_p,      spawn,          {.v = dmenucmd } },
 	{ MODKEY|ShiftMask,             XK_Return, spawn,          {.v = termcmd } },
 	{ MODKEY,                       XK_b,      togglebar,      {0} },
