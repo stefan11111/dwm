@@ -64,7 +64,7 @@ static const Layout layouts[] = {
 #define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
 
 /* commands */
-static const char *cmdprintscreen[]  = { "scrot", "/home/stefan/screenshots/%Y-%m-%d-%s_$wx$h.png", NULL };
+static const char *cmdprintscreen[]  = { "/home/stefan/screenshots/screenshot.sh", NULL };
 static const char *english[] = { "setxkbmap", "ro", NULL };
 static const char *romanian[] = { "setxkbmap", "ro", "std", NULL };
 static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
