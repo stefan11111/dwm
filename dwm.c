@@ -96,6 +96,9 @@ struct Client {
 	Client *snext;
 	Monitor *mon;
 	Window win;
+	Visual *visual;
+	Colormap cmap;
+	long saved_pixels[2];
 };
 
 typedef struct {
@@ -151,6 +154,7 @@ static void buttonpress(XEvent *e);
 static void checkotherwm(void);
 static void cleanup(void);
 static void cleanupmon(Monitor *mon);
+static unsigned long clientborderpixel(Client *c, Clr *clr, int type);
 static void clientmessage(XEvent *e);
 static void configure(Client *c);
 static void configurenotify(XEvent *e);
@@ -800,7 +804,7 @@ focus(Client *c)
 		detachstack(c);
 		attachstack(c);
 		grabbuttons(c, 1);
-		XSetWindowBorder(dpy, c->win, scheme[SchemeSel][ColBorder].pixel);
+		XSetWindowBorder(dpy, c->win, clientborderpixel(c, &scheme[SchemeSel][ColBorder], SchemeSel));
 		setfocus(c);
 	} else {
 		XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
@@ -1037,6 +1041,10 @@ manage(Window w, XWindowAttributes *wa)
 
 	c = ecalloc(1, sizeof(Client));
 	c->win = w;
+
+	c->visual = wa->visual;
+	c->cmap = wa->colormap;
+
 	/* geometry */
 	c->x = c->oldx = wa->x;
 	c->y = c->oldy = wa->y;
@@ -1063,7 +1071,7 @@ manage(Window w, XWindowAttributes *wa)
 
 	wc.border_width = c->bw;
 	XConfigureWindow(dpy, w, CWBorderWidth, &wc);
-	XSetWindowBorder(dpy, w, scheme[SchemeNorm][ColBorder].pixel);
+	XSetWindowBorder(dpy, w, clientborderpixel(c, &scheme[SchemeNorm][ColBorder], SchemeNorm));
 	configure(c); /* propagates border_width, if size doesn't change */
 	updatewindowtype(c);
 	updatesizehints(c);
@@ -1768,7 +1776,7 @@ unfocus(Client *c, int setfocus)
 	if (!c)
 		return;
 	grabbuttons(c, 0);
-	XSetWindowBorder(dpy, c->win, scheme[SchemeNorm][ColBorder].pixel);
+	XSetWindowBorder(dpy, c->win, clientborderpixel(c, &scheme[SchemeNorm][ColBorder], SchemeNorm));
 	if (setfocus) {
 		XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
 		XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
@@ -2162,4 +2170,85 @@ main(int argc, char *argv[])
 	cleanup();
 	XCloseDisplay(dpy);
 	return EXIT_SUCCESS;
+}
+
+static unsigned long
+clientborderpixel(Client *c, Clr *clr, int type)
+{
+	XVisualInfo vi;
+	XRenderPictFormat *fmt;
+	unsigned long pixel = 0;
+	unsigned long max;
+
+	if (c->saved_pixels[type]) {
+		return c->saved_pixels[type];
+	}
+
+	vi.visual = c->visual;
+
+	/* Find the visual's masks. */
+	XVisualInfo *info = XGetVisualInfo(
+		dpy, VisualIDMask, &vi, &(int){0});
+
+	/*
+	 * For TrueColor/DirectColor, the pixel is determined entirely
+	 * by the visual's RGB masks.
+	 */
+	if (info) {
+		vi = *info;
+		XFree(info);
+
+		if (vi.class == TrueColor || vi.class == DirectColor) {
+			max = (1UL << __builtin_popcount(vi.red_mask)) - 1;
+			pixel |= ((unsigned long)clr->color.red *
+			          max + 32767) / 65535
+			         << __builtin_ctzl(vi.red_mask);
+
+			max = (1UL << __builtin_popcount(vi.green_mask)) - 1;
+			pixel |= ((unsigned long)clr->color.green *
+			          max + 32767) / 65535
+			         << __builtin_ctzl(vi.green_mask);
+
+			max = (1UL << __builtin_popcount(vi.blue_mask)) - 1;
+			pixel |= ((unsigned long)clr->color.blue *
+			          max + 32767) / 65535
+			         << __builtin_ctzl(vi.blue_mask);
+
+			/*
+			 * A depth-32 ARGB visual needs an opaque alpha
+			 * value for the border.
+			 */
+			fmt = XRenderFindVisualFormat(dpy, c->visual);
+			if (fmt &&
+			    fmt->type == PictTypeDirect &&
+			    fmt->direct.alphaMask) {
+				max = (1UL << fmt->direct.alphaMask) - 1;
+				pixel |= max << fmt->direct.alpha;
+			}
+
+			c->saved_pixels[type] = pixel;
+			return pixel;
+		}
+	}
+
+	/*
+	 * Non-TrueColor fallback.
+	 */
+	{
+		Colormap cmap;
+		XColor xc = {
+			.red   = clr->color.red,
+			.green = clr->color.green,
+			.blue  = clr->color.blue,
+		};
+
+		cmap = c->cmap ? c->cmap : DefaultColormap(dpy, screen);
+
+		if (XAllocColor(dpy, cmap, &xc)) {
+			c->saved_pixels[type] = xc.pixel;
+			return xc.pixel;
+		}
+	}
+
+	return clr->pixel;
 }
